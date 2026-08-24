@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=https://schema.buildwithfern.dev/docs-yml.json
 
 instances:
-  - url: devreliance-health.docs.buildwithfern.com
+  - url: myhealthcare.docs.buildwithfern.com
     edit-this-page:
       github:
-        owner: fern-starter
-        repo: postman-devrel-900197
+        owner: avdev4j
+        repo: myhealthcare-fern-doc
         branch: main
       launch: dashboard
 title: MyHealthcare.dev | Documentation
