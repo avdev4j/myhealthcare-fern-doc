@@ -1,0 +1,10 @@
+{
+  "desiredContentHash": "5a138a73c0e3bfc078b94459d3f1ab4441dc5107b2fd28af3e004eb186750d46",
+  "docsUrl": "https://myhealthcare.docs.buildwithfern.com",
+  "starter": {
+    "repoOwner": "fern-api",
+    "repoName": "docs-starter-internal",
+    "commitSha": "7a136fbd26e750f96d049759bc080129b23e7a5c",
+    "label": "2026-07-layouts-launch"
+  }
+}
