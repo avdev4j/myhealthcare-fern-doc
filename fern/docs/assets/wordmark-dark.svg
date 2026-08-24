@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 22" width="160" height="22" role="img" aria-label="MyHealthcare.dev">
+  <!-- Interim wordmark pending the design team. One <text> with a <tspan> so the
+       suffix follows the name regardless of which font the browser resolves;
+       a hardcoded x would overlap or gap when Inter is unavailable.
+       Colours are official Postman 2026 palette: O:80 light, O:60 dark. -->
+  <text x="0" y="16" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="17" letter-spacing="-0.3" fill="#FFFFFF" font-weight="650">MyHealthcare<tspan fill="#FF6C37" font-weight="450">.dev</tspan></text>
+</svg>

@@ -1,6 +1,6 @@
 {
-  "desiredContentHash": "5a138a73c0e3bfc078b94459d3f1ab4441dc5107b2fd28af3e004eb186750d46",
-  "docsUrl": "https://myhealthcare.docs.buildwithfern.com",
+  "desiredContentHash": "6c8803f27252cbeee743c49c0ba93e94ab7cdb9180cf94983042028065026d40",
+  "docsUrl": "https://devreliance-health.docs.buildwithfern.com",
   "starter": {
     "repoOwner": "fern-api",
     "repoName": "docs-starter-internal",

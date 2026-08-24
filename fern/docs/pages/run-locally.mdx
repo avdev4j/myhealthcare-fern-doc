@@ -1,0 +1,121 @@
+---
+title: Run it locally
+subtitle: Bring up a subset of the fleet, make a request, and watch the event land.
+slug: run-locally
+---
+
+The platform is composed of stacks. You almost never want all 101 services — you want the seven-service baseline plus whichever domain you are demonstrating.
+
+## Prerequisites
+
+- **Docker Desktop** running — `docker info` should return without error.
+- **RAM:** 8 GB free for `core`. 20 GB+ for `clinical` + `billing` + `insurance` together.
+- **Time:** the first build pulls `python:3.11-slim` and runs `pip install` per service. Plan on 5–15 minutes for `core`.
+
+<Warning>
+`./run.sh all` attempts every service — 94 Python, 4 Go, 3 Node — and needs 40 GB+ of RAM. It is not the intended development flow and will OOM on most machines.
+</Warning>
+
+## Bring up a stack
+
+Everything is orchestrated from `healthcare-infra`:
+
+```bash
+git clone https://github.com/healthcare-org-app/healthcare-infra
+cd healthcare-infra
+
+./run.sh --list          # available stacks
+./run.sh core            # infra + the 7 baseline services
+```
+
+Stacks are additive — they union, and `core` is implicit in any non-`infra` stack:
+
+```bash
+./run.sh clinical            # core + EHR, labs, imaging, pharmacy, appointments
+./run.sh billing insurance   # core + both, unioned
+./run.sh core down           # stop
+./run.sh clinical logs       # tail
+./run.sh core ps             # status
+```
+
+## Stack catalog
+
+| Stack | Services | Contains |
+|---|---|---|
+| `infra` | — | postgres, kafka, zookeeper, redis, consul, kafka-init |
+| `core` | 7 | identity, auth, authorization, audit-log, patients, providers, notifications |
+| `clinical` | 10 | ehr, encounters, cpoe, appointments, lab orders/results, imaging orders/results, prescriptions, pharmacy |
+| `billing` | 9 | billing, charge-capture, claims submission/adjudication, denials, invoicing, payments, statements, collections |
+| `insurance` | 6 | eligibility, prior-auth, coverage-verification, payer-directory, payer-edi-connect, claims-status |
+| `devices` | 6 | device-registry, device-telemetry, device-alerts, device-fleet, remote-monitoring, vitals |
+| `comms` | 5 | sms, email and push gateways, patient-communications, secure-messaging |
+| `erp-bridge` | 1 | erp-bridge-service. The ERP itself must run separately on ports 3010–3018. |
+| `all` | 101 | Everything. See the warning above. |
+
+## Verify
+
+Every service exposes `GET /health` on its own port. There is no gateway in front, so you check each one directly:
+
+```bash
+for port in 8001 8002 8003 8007 8100 8200 9000; do
+  echo -n "$port: "; curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:$port/health
+done
+# all 200 when healthy
+```
+
+## Make a request
+
+Auth is disabled locally via `AUTH_DISABLED=1`, so no token is needed:
+
+```bash
+# create a patient
+curl -X POST http://127.0.0.1:8100/api/patients/ \
+  -H 'Content-Type: application/json' \
+  -d '{"first_name":"Ada","last_name":"Lovelace","dob":"1815-12-10"}'
+
+# read it back
+curl http://127.0.0.1:8100/api/patients/
+```
+
+## Watch the event
+
+That single `POST` published `patient.created`, which nine services subscribe to:
+
+```bash
+docker exec -it healthcare_kafka \
+  kafka-console-consumer --bootstrap-server kafka:9092 \
+    --topic patient.created --from-beginning --max-messages 5
+```
+
+With the `clinical` stack up, the downstream writes are visible too — `ehr-service` will have snapshotted the patient without anyone calling it.
+
+## Iterating
+
+The shared runtime is bind-mounted read-only into every container at `/opt/py-healthcare-common`, so changes to it take effect on the next container start with no rebuild.
+
+Service code is baked into the image. After editing one service, rebuild just that service:
+
+```bash
+docker compose -p healthcare-org --project-directory . \
+  -f .run-orchestrator.compose.yml build <service-name>
+docker compose -p healthcare-org --project-directory . \
+  -f .run-orchestrator.compose.yml up -d <service-name>
+```
+
+## Data and resets
+
+Postgres, Kafka and Redis keep data in named volumes. `./run.sh <stack> down` stops containers and keeps the data.
+
+<Warning>
+If you change Kafka or Zookeeper versions, or wipe ZK without wiping Kafka, brokers refuse to start with `InconsistentClusterIdException`. Recover by nuking the volumes:
+
+```bash
+./run.sh <stack> down
+docker compose -p healthcare-org down --volumes
+./run.sh <stack>
+```
+</Warning>
+
+<Note>
+Full operational detail — the compose `include:` mechanism, per-service overrides, and running without Docker — is in the [`healthcare-infra` README](https://github.com/healthcare-org-app/healthcare-infra#readme).
+</Note>

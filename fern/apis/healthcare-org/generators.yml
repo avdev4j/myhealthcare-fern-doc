@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://schema.buildwithfern.dev/generators-yml.json
+
+# One API composed from every service spec, one namespace per service.
+#
+# The namespace is NOT optional. Without it Fern merges the specs on raw path
+# keys, so the /health and /ready pair that every service exposes collapses into
+# a single copy and the rest are dropped — silently, with `fern check` green and
+# the build succeeding. Measured: 24 endpoint pages with namespaces, 20 without.
+#
+# Namespaces use the full service name so they don't collide with the
+# x-fern-sdk-group-name inside each spec, which would nest two identically
+# labelled levels in the sidebar.
+
+api:
+  specs:
+    - openapi:
+        git:
+          repo: https://github.com/healthcare-org-app/healthcare-appointments
+          ref: main
+          path: openapi.yaml
+      namespace: appointments-service
+
+    - openapi:
+        git:
+          repo: https://github.com/healthcare-org-app/healthcare-appointment-slots
+          ref: main
+          path: openapi.yaml
+      namespace: appointment-slots-service
+
+    - openapi:
+        git:
+          repo: https://github.com/healthcare-org-app/healthcare-prescriptions
+          ref: main
+          path: openapi.yaml
+      namespace: prescriptions-service

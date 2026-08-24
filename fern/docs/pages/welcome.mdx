@@ -1,42 +1,61 @@
 ---
-title: Welcome to MyHealthcare!
-subtitle: Everything you need to build the best developer experience
+title: MyHealthcare.dev
+subtitle: A production-shaped healthcare platform, built to be documented, tested, and explored at real scale.
 slug: welcome
-layout: overview
 hide-page-actions: true
-hide-feedback: true
 hide-nav-links: true
+hide-feedback: true
+layout: overview
 ---
 
-<div className="nebula-anchor" />
-
-<div className="welcome-buttons">
-<Button intent="primary" large href="/editing-your-docs">Get started</Button> <Button outlined large>Book a demo</Button>
+{/* Official horizontal lockup, unmodified. Orange_Black renders the wordmark in
+    black for light backgrounds; Orange_White carries the same paths in white.
+    The caption is tinted with opacity rather than a fixed grey so it stays
+    readable against both the white and #0C0319 backgrounds. */}
+<div style={{textAlign:'center',marginBottom:'50px'}}>
+  <img src="../assets/Postman_Logo_Horizontal_Orange_Black_Web.svg" alt="Postman" width="188" className="block dark:hidden" style={{margin:'0 auto'}} />
+  <img src="../assets/Postman_Logo_Horizontal_Orange_White_Web.svg" alt="Postman" width="188" className="hidden dark:block" style={{margin:'0 auto'}} />
+  <p style={{marginTop:'14px',marginBottom:'0',fontSize:'0.8125rem',opacity:0.65}}>A Postman DevRel team project</p>
 </div>
 
-<CardGroup cols={2}>
-  <Card title="Payments" icon="duotone credit-card">
-    Accept one-time and recurring payments with a simple, unified API
+**MyHealthcare.dev** is the documentation surface for `healthcare-org` — a canonical demo platform maintained by the Postman Developer Relations team, with source at [github.com/healthcare-org-app](https://github.com/healthcare-org-app).
+
+It models a hospital group's software estate the way one actually looks: **101 independently-deployable services** across fourteen business domains, talking over HTTP and Kafka, each owning its own database, plus event-driven integration into an external ERP owned by a different organization.
+
+The point is the scale and the mess that comes with it. Most API examples are one service with five endpoints, where every problem worth demonstrating has already been designed away. This one has 285 declared service-to-service dependencies and 107 event subscriptions, so questions like *which teams break if this response shape changes* have answers you have to go and find.
+
+## By the numbers
+
+| | |
+|---|---|
+| Services | **101**, each independently deployable |
+| Repositories | **104** — 101 services + 3 meta repos |
+| Business domains | **14** |
+| Languages | Python (94), Go (4), Node (3) |
+| HTTP dependency edges | **285** |
+| Kafka topics | **25** |
+| Event subscription edges | **107** |
+| Databases | **15** Postgres, one per domain |
+| External ERP peers | **9**, in a separate GitHub org |
+
+## Start here
+
+<CardGroup cols={3}>
+  <Card title="What it covers" icon="duotone hospital" href="/domains">
+    The fourteen business domains, the services in each, and who owns which data.
   </Card>
-  <Card title="Subscriptions" icon="duotone arrows-repeat">
-    Create and manage recurring billing plans with built-in proration and trials
+  <Card title="What to do with it" icon="duotone diagram-project" href="/use-cases">
+    The end-to-end flows that actually run, and what the platform is useful for exercising.
   </Card>
-  <Card title="Invoicing" icon="duotone file-invoice-dollar">
-    Generate, send, and track invoices automatically
-  </Card>
-  <Card title="Checkout" icon="duotone cart-shopping">
-    Drop in a pre-built payment form with support for 30+ payment methods
+  <Card title="Why it exists" icon="duotone bullseye-arrow" href="/goals">
+    The design goals, the constraints they impose, and what is deliberately left broken.
   </Card>
 </CardGroup>
 
-<div className="welcome-help">
+## Run it
 
-## Need help?
+The whole fleet does not need to be running to be useful. `healthcare-infra` ships composable stacks — bring up the seven-service `core` baseline, add `clinical` or `billing` on top, and leave the rest down.
 
-Our team is here to help you get the most out of Acme. Reach out through any of the channels below and we'll get back to you as soon as possible.
-
-<div className="welcome-buttons">
-<Button outlined large icon="fa-brands fa-slack">Slack</Button> <Button outlined large icon="envelope" href="/support">Email</Button>
-</div>
-
-</div>
+<Card title="Run it locally" icon="duotone terminal" href="/run-locally">
+  Prerequisites, the stack catalog, and a first request that emits a real event.
+</Card>

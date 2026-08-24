@@ -1,0 +1,83 @@
+---
+title: Business domains
+subtitle: What the platform covers — fourteen domains, 101 services, and the data each one owns.
+slug: domains
+---
+
+`healthcare-org` is organised the way a hospital group's software estate is organised: by business domain, not by technical layer. Each domain owns its own Postgres database, its own services, and its own vocabulary of events.
+
+Services are numbered by domain. The port block tells you where a service sits before you know anything else about it — `85xx` is pharmacy, `87xx` is revenue cycle.
+
+## The domains
+
+| Ports | Domain | Services | What it handles |
+|---|---|---|---|
+| `80xx` | **Platform** | 10 | Identity, auth, authorization, config, secrets, feature flags, tenancy, audit, service registry |
+| `81xx` | **Patients** | 10 | The system of record for demographics, consent, preferences, relationships, timeline, search, and merge |
+| `82xx` | **Providers** | 9 | Clinician records, credentialing, licensing, specialties, schedules, on-call rotas, performance |
+| `83xx` | **Clinical / EHR** | 15 | Encounters, notes, problem lists, medication reconciliation, allergies, immunizations, vitals, CPOE, care plans, referrals, discharge, decision support, diagnosis codes, care teams |
+| `84xx` | **Diagnostics** | 8 | Lab and imaging orders and results, pathology, radiology worklist, specimen tracking, reference ranges |
+| `85xx` | **Pharmacy** | 7 | Prescriptions, refills, drug interactions, formulary, inventory, dispensing |
+| `86xx` | **Scheduling** | 5 | Appointments, slots, reminders, waitlist, room booking |
+| `87xx` | **Billing / RCM** | 10 | Charge capture, coding, claims submission and adjudication, denials, invoicing, payments, statements, collections |
+| `88xx` | **Insurance** | 6 | Eligibility, prior authorization, coverage verification, payer directory, EDI connect, claims status |
+| `89xx` | **Devices / IoT** | 5 | Device registry and fleet, telemetry ingest, threshold alerting, remote monitoring |
+| `90xx` | **Communications** | 5 | Notification orchestration plus SMS, email, push, and secure messaging gateways |
+| `91xx` | **AI / Analytics** | 5 | Agent definitions, invocation records, analytics events, reporting, model registry |
+| `92xx` | **Facility / Ops** | 5 | Facilities, wards and beds, equipment, sterile supply, maintenance |
+| `93xx` | **Integration** | 1 | `erp-bridge-service` — the seam to the external ERP |
+
+The authoritative catalog is [`registry.yaml`](https://github.com/healthcare-org-app/healthcare-infra/blob/main/registry.yaml) in `healthcare-infra`: one row per service with its port, language, HTTP dependencies, and Kafka topics.
+
+## Who everything depends on
+
+Domains are not equal. A handful of services carry most of the fleet, which is what makes a change to any of them interesting:
+
+| Inbound HTTP callers | Service | Why |
+|---|---|---|
+| 94 | `audit-log-service` | Every service writes to the audit trail |
+| 36 | `patients-service` | Nearly every clinical and financial record hangs off a patient |
+| 21 | `providers-service` | Attribution and authorization |
+| 12 | `notifications-service`, `ehr-service` | Outbound comms; clinical record lookups |
+| 8 | `auth-service` | Token introspection |
+
+`patients-service` is also the hand-written **golden reference** — the other 100 were generated from a template against it, so it is the one to read first.
+
+## Data ownership
+
+Fifteen Postgres databases, one per domain: `identity`, `auth`, `patients`, `providers`, `ehr`, `lab`, `imaging`, `pharmacy`, `insurance`, `claims`, `billing`, `notifications`, `devices`, `ai_agents`, `audit`.
+
+No service reads another domain's database. Cross-domain reads are HTTP calls; cross-domain writes are events. Where a service needs fast local access to a peer's data — `patient-search-service` needing patient names, say — it subscribes to that peer's events and keeps its own snapshot, which it then has to keep correct when `patient.merged` fires.
+
+## Events
+
+Twenty-five Kafka topics, declared in [`topics.yaml`](https://github.com/healthcare-org-app/healthcare-infra/blob/main/topics.yaml):
+
+**Identity** `identity.user.created` · `identity.user.deactivated` · `auth.session.started`
+**Patients** `patient.created` · `patient.updated` · `patient.merged` · `patient.consent.updated`
+**Clinical** `encounter.started` · `encounter.ended` · `order.placed`
+**Diagnostics** `lab.result.available` · `imaging.result.available`
+**Pharmacy** `prescription.issued` · `prescription.refill_requested`
+**Scheduling** `appointment.booked` · `appointment.cancelled`
+**Billing** `charge.captured` · `claim.submitted` · `claim.adjudicated` · `invoice.issued` · `invoice.paid`
+**Devices** `device.reading` · `device.alert.triggered`
+**Comms** `notification.requested`
+**Audit** `audit.event`
+
+`device.reading` and `audit.event` each run 24 partitions — they carry an order of magnitude more traffic than the business topics.
+
+## How a service is shaped
+
+The fleet is uniform by construction, generated from one template in `healthcare-tools`. Every Python service:
+
+- exposes a Flask HTTP API with JWT-guarded resource routes, plus `/health` and `/ready` injected by the shared runtime
+- owns one Postgres database, storing records as a fixed envelope (`id`, `status`, `created_at`, `updated_at`) around a free-form JSONB `data` document
+- publishes domain events and subscribes to peers' over Kafka
+- calls siblings through a shared retry + circuit-breaker HTTP client
+- writes every mutation to the append-only `audit.event` stream
+
+The shared runtime is [`healthcare-common`](https://github.com/healthcare-org-app/healthcare-common): HTTP client, event bus, JWT auth, correlation-id tracing, DB pool, audit publisher, and the `create_service()` bootstrap that wires them together. A service's main file is about fifteen lines.
+
+<Note>
+The uniformity is the point, and also the catch. Because 100 services were generated from one template, they are near-identical apart from three constants — which makes fleet-wide tooling easy to demonstrate, and makes any single service a poor showcase of API design variety. The bespoke endpoints are where the interesting differences live.
+</Note>

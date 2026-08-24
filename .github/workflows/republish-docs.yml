@@ -1,0 +1,37 @@
+name: republish-docs
+
+# Picks up upstream OpenAPI changes.
+#
+# The prescriptions spec is not vendored in this repo — fern/apis/openapi/generators.yml
+# declares it as a `git:` source, so it is cloned fresh on every generate. That means
+# publish-docs.yml only ships a changed upstream spec when something else happens to push
+# to main. This job removes that dependency by regenerating on a schedule.
+#
+# Publishing the same unchanged spec is a no-op, so a quiet day costs nothing but a run.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily at 03:00 UTC. Scheduled runs only fire from the default branch,
+    # so this stays dormant until merged to main.
+    - cron: "0 3 * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Setup Fern CLI
+        uses: fern-api/setup-fern-cli@v1
+
+      - name: Publish Docs
+        env:
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
+        run: fern generate --docs --log-level debug

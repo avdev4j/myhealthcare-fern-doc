@@ -1,0 +1,76 @@
+---
+title: Goals
+subtitle: Why this platform exists, what it optimizes for, and what is deliberately left unfinished.
+slug: goals
+---
+
+`healthcare-org` is a demonstration platform built by the Postman Developer Relations team. Nobody's medical records are in it. Its purpose is to be a realistic subject — something to point tooling at, build workflows against, and record demos on, where the answers are not trivially obvious because the system is not trivially small.
+
+## What it optimizes for
+
+### Realistic scale, not illustrative scale
+
+The usual API demo is one service with a handful of endpoints. Every hard problem — versioning across teams, discovery, blast radius, contract drift, ownership — has been designed out before it can appear.
+
+101 services across fourteen domains, 285 HTTP edges, and 107 event subscriptions put those problems back. "Which callers break if this field changes?" becomes a question you have to answer with a tool rather than by looking.
+
+### Genuinely interdependent, not just numerous
+
+A hundred unrelated services would be a large demo, not a realistic one. The interdependence here is real and countable in the source:
+
+- 44 services make live HTTP calls to peers inside their create handlers
+- 49 services have Kafka handlers that write to their own database or publish follow-up events
+- `audit-log-service` has 94 inbound callers; `patients-service` has 36
+
+Chains run five and six services deep across domain boundaries. Breaking something in one domain surfaces in another.
+
+### Production-shaped mechanics
+
+The plumbing is the kind that makes demos honest rather than the kind that makes them short. Retry with jitter and circuit breakers on every service-to-service call. Correlation ids propagated through both HTTP and Kafka. An append-only audit stream every mutation writes to. Per-domain database isolation with no cross-domain reads. Graceful degradation when a peer is down.
+
+### Uniform by construction
+
+100 of the 101 services were generated from a single template in `healthcare-tools`, against the hand-written `patients-service` reference. Two consequences, both intentional:
+
+- Anything that works on one service should work on all 101 — so fleet-wide tooling can be demonstrated at full scale rather than asserted.
+- New services are cheap. `registry.yaml`, a scaffold run, and a repo create.
+
+### Federation across organizations
+
+The ERP peers live in a different GitHub org (`buildwithtalia/erp-*`) with different conventions and a different team's assumptions. Integration runs in both directions — async through `erp-bridge-service`, sync through three inline validations, plus a Kafka consumer on the ERP side. Single-org demos cannot pose the problems that come with a boundary you do not control.
+
+## What is deliberately incomplete
+
+The gaps are load-bearing. They are the starting conditions for the work the platform exists to demonstrate — closing them all would remove the point.
+
+### One spec out of 101
+
+`prescriptions-service` has a hand-written OpenAPI 3.1 spec — 7 operations across 5 paths, carrying Fern extensions for server names and SDK method naming. The other 100 services have none. Flask emits no OpenAPI.
+
+This is the normal condition in a large estate, and it is the problem to solve rather than an oversight. Because the CRUD block is templated, generating the remaining specs is tractable: read `registry.yaml` and each repo's `app/routes.py`, emit the common shape, and flag bespoke endpoints for review. Not yet written.
+
+### Nothing checks specs against code
+
+The sync pipeline documented here pulls `openapi.yaml` into Fern. Nothing pulls `app/routes.py` into `openapi.yaml`. A developer can add an endpoint and the spec goes stale, and the pipeline will faithfully publish the stale version.
+
+The fix belongs in each service repo — a test comparing Flask's `app.url_map` against the paths and methods the spec declares. Roughly thirty lines, no database needed. Not yet written for any service.
+
+### The gateway is a stub
+
+`healthcare-api-gateway` registers `/health` and `/ready` and proxies nothing. There is no single base URL fronting the fleet, which is why the OpenAPI specs carry per-service server blocks rather than a shared host.
+
+### Documentation covers one service
+
+The API Reference in these docs documents `prescriptions-service` alone. Expanding it is gated on the spec gap above.
+
+## How this shapes the documentation
+
+Two decisions follow directly, and are worth stating because they look odd otherwise:
+
+**One spec per service, composed at the documentation layer.** Specs live in the service repos, not merged into one document. A spec only stays true if editing the route and editing the spec are the same commit reviewed by the same person. Beyond that, a merged document physically collides — all 101 services expose `/health` and `/ready`, and OpenAPI path keys are unique, so 100 of them would be silently dropped. Same for `operationId` and the shared error schemas.
+
+**Pull-based sync.** This repo fetches each spec from its source repository rather than having 101 service repos push into it — which would mean a workflow and a credential in 101 places.
+
+<Note>
+Source lives at [github.com/healthcare-org-app](https://github.com/healthcare-org-app). Start with [`healthcare-infra`](https://github.com/healthcare-org-app/healthcare-infra) for the registry and topic catalog, and [`healthcare-patients`](https://github.com/healthcare-org-app/healthcare-patients) for the reference service every other one was generated from.
+</Note>
